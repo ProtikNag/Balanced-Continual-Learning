@@ -34,6 +34,7 @@ def load_split_mnist_data(batch_size=64, root='./data', cache_dir='./cache'):
 
     # Define task pairs and shuffle them for random task order
     task_pairs = [(i, i + 1) for i in range(0, 10, 2)]
+    # task_pairs[0], task_pairs[1] = task_pairs[1], task_pairs[0]
     random.shuffle(task_pairs)
 
     tasks_train = []

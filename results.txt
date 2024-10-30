@@ -30,6 +30,10 @@ Accuracy on Task 5: 98.74%
 
 
 
+
+------------------------------------------------------------------------------------------------------------------------
+# after shuffling the tasks
+
 Training on Task 1
 Evaluating performance on all tasks seen so far...
 Accuracy on Task 1: 99.57%
@@ -59,3 +63,73 @@ Accuracy on Task 2: 64.10%
 Accuracy on Task 3: 91.54%
 Accuracy on Task 4: 99.01%
 Accuracy on Task 5: 99.04%
+
+
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+Training on Task 1
+Evaluating performance on all tasks seen so far...
+Accuracy on Task 1: 99.68%
+
+Training on Task 2
+Evaluating performance on all tasks seen so far...
+Accuracy on Task 1: 75.83%
+Accuracy on Task 2: 99.55%
+
+Training on Task 3
+Evaluating performance on all tasks seen so far...
+Accuracy on Task 1: 54.16%
+Accuracy on Task 2: 82.43%
+Accuracy on Task 3: 99.86%
+
+Training on Task 4
+Evaluating performance on all tasks seen so far...
+Accuracy on Task 1: 43.33%
+Accuracy on Task 2: 85.40%
+Accuracy on Task 3: 70.64%
+Accuracy on Task 4: 98.58%
+
+Training on Task 5
+Evaluating performance on all tasks seen so far...
+Accuracy on Task 1: 91.84%
+Accuracy on Task 2: 83.94%
+Accuracy on Task 3: 42.41%
+Accuracy on Task 4: 66.85%
+Accuracy on Task 5: 99.14%
+
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+Training on Task 1
+Evaluating performance on all tasks seen so far...
+Accuracy on Task 1: 99.60%
+
+Training on Task 2
+Evaluating performance on all tasks seen so far...
+Accuracy on Task 1: 56.90%
+Accuracy on Task 2: 52.29%
+
+Training on Task 3
+Evaluating performance on all tasks seen so far...
+Accuracy on Task 1: 64.55%
+Accuracy on Task 2: 52.93%
+Accuracy on Task 3: 99.91%
+
+Training on Task 4
+Evaluating performance on all tasks seen so far...
+Accuracy on Task 1: 86.86%
+Accuracy on Task 2: 52.40%
+Accuracy on Task 3: 31.68%
+Accuracy on Task 4: 49.12%
+
+Training on Task 5
+Evaluating performance on all tasks seen so far...
+Accuracy on Task 1: 86.76%
+Accuracy on Task 2: 52.40%
+Accuracy on Task 3: 75.70%
+Accuracy on Task 4: 49.12%
+Accuracy on Task 5: 98.87%
+
