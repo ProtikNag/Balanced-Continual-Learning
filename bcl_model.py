@@ -30,7 +30,7 @@ def remap_labels(target):
 
 
 class BCLModel:
-    def __init__(self, model, lr=0.0001, epsilon=0.0001, k_range=10, x_updates=5, theta_updates=5):
+    def __init__(self, model, lr=0.001, epsilon=0.01, k_range=100, x_updates=15, theta_updates=15):
         self.model = model
         self.optimizer = optim.SGD(self.model.parameters(), lr=lr)
         self.criterion = nn.CrossEntropyLoss()
@@ -79,7 +79,7 @@ class BCLModel:
                 temp_model_optimizer.step()
 
             # Jk (θ^(i+ζ) k) − Jk (θ^i k )
-            forget_loss = initial_loss_2 - forget_loss
+            forget_loss = forget_loss - initial_loss_2
             loss += initial_loss + gen_loss + forget_loss.detach()
         else:
             loss = self.criterion(self.model(data, task_id), target)

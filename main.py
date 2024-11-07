@@ -6,7 +6,7 @@ from visualize import plot_loss
 
 def main():
     # Load data
-    tasks_train, tasks_test = load_split_mnist_data(batch_size=1, max_samples_per_task=10)
+    tasks_train, tasks_test = load_split_mnist_data(batch_size=1, max_samples_per_task=500)
 
     # Initialize model
     model = TaskSpecificMLP()
