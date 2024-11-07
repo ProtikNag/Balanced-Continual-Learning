@@ -3,21 +3,34 @@ import torch.optim as optim
 import torch.nn as nn
 import torch.nn.functional as F
 import copy
+import random
 
+random.seed(42)
 torch.autograd.set_detect_anomaly(True)
 
 
-def remap_labels(targets):
-    unique_digits = targets.unique()
-    remapped_targets = targets.clone()
-    remapped_targets[targets == unique_digits[0]] = 0
-    remapped_targets[targets == unique_digits[1]] = 1
+def remap_labels(target):
+    remapped_targets = target.clone()
 
-    return remapped_targets[(targets == unique_digits[0]) | (targets == unique_digits[1])]
+    # Define the mapping for each task
+    task_mapping = {
+        (0, 1): 0,
+        (2, 3): 2,
+        (4, 5): 4,
+        (6, 7): 6,
+        (8, 9): 8
+    }
+
+    # Remap each target to [0, 1] range for its task
+    for (digit1, digit2), base_label in task_mapping.items():
+        remapped_targets[target == digit1] = 0
+        remapped_targets[target == digit2] = 1
+
+    return remapped_targets
 
 
 class BCLModel:
-    def __init__(self, model, lr=0.001, epsilon=0.001, k_range=100, x_updates=50, theta_updates=50):
+    def __init__(self, model, lr=0.0001, epsilon=0.0001, k_range=10, x_updates=5, theta_updates=5):
         self.model = model
         self.optimizer = optim.SGD(self.model.parameters(), lr=lr)
         self.criterion = nn.CrossEntropyLoss()
@@ -28,82 +41,113 @@ class BCLModel:
         self.task_memory = {}  # Stores data from previous tasks
         self.task_count = 0
 
-    def update_model(self, inputs, targets, current_task_id):
-        remapped_targets = remap_labels(targets)
+    def update_model(self, data, target, task_id):
+        target = remap_labels(target)
         loss = 0.0
-        out = None
+        out = self.model(data, task_id)
+        # print("Look Here: ", out, target)
+        initial_loss = self.criterion(out, target)
 
-        for kappa in range(self.k_range):
-            initial_loss = self.criterion(self.model(inputs, current_task_id - 1), remapped_targets)
+        if self.task_count > 0:
+            perturbed_input = data.clone().detach().requires_grad_(True)
+            initial_loss_1 = self.criterion(self.model(data, task_id), target)
 
-            if self.task_count > 0:
-                perturbed_inputs = inputs.clone().detach().requires_grad_(True)
-                initial_loss_1 = self.criterion(self.model(inputs, current_task_id - 1), remapped_targets)
+            # Player 1
+            gen_loss = None
+            for _ in range(self.x_updates):
+                out = self.model(perturbed_input, task_id)
+                gen_loss = self.criterion(out, target)
 
-                # Player 1
-                gen_loss = None
-                for _ in range(self.x_updates):
-                    out = self.model(perturbed_inputs, current_task_id - 1)
-                    gen_loss = self.criterion(out, remapped_targets)
+                # Perturb input
+                self.optimizer.zero_grad()
+                gen_loss.backward(retain_graph=True)
+                perturbed_input = perturbed_input + self.epsilon * perturbed_input.grad.sign()
+                perturbed_input = perturbed_input.detach().requires_grad_(True)
 
-                    # Perturb inputs
-                    self.optimizer.zero_grad()
-                    gen_loss.backward(retain_graph=True)
-                    perturbed_inputs = perturbed_inputs + self.epsilon * perturbed_inputs.grad.sign()
-                    perturbed_inputs = perturbed_inputs.detach().requires_grad_(True)
+            # Jk+ζ (θ k ) − Jk (θ k )
+            gen_loss = gen_loss - initial_loss_1
 
-                # Jk+ζ (θ k ) − Jk (θ k )
-                gen_loss = gen_loss - initial_loss_1
+            # Player 2
+            temp_model = copy.deepcopy(self.model)
+            temp_model_optimizer = optim.SGD(temp_model.parameters(), lr=self.epsilon)
+            initial_loss_2 = self.criterion(temp_model(data, task_id), target)
 
-                # Player 2
-                temp_model = copy.deepcopy(self.model)
-                temp_model_optimizer = optim.SGD(temp_model.parameters(), lr=self.epsilon)
-                initial_loss_2 = self.criterion(temp_model(inputs, current_task_id - 1), remapped_targets)
+            forget_loss = None
+            for _ in range(self.theta_updates):
+                out = temp_model(data, task_id)
+                forget_loss = self.criterion(out, target)
 
-                forget_loss = None
-                for _ in range(self.theta_updates):
-                    out = temp_model(inputs, current_task_id - 1)
-                    forget_loss = self.criterion(out, remapped_targets)
+                temp_model_optimizer.zero_grad()
+                forget_loss.backward(retain_graph=True)
+                temp_model_optimizer.step()
 
-                    temp_model_optimizer.zero_grad()
-                    forget_loss.backward(retain_graph=True)
-                    temp_model_optimizer.step()
+            # Jk (θ^(i+ζ) k) − Jk (θ^i k )
+            forget_loss = initial_loss_2 - forget_loss
+            loss += initial_loss + gen_loss + forget_loss
+        else:
+            loss = self.criterion(self.model(data, task_id), target)
 
-                # Jk (θ^(i+ζ) k) − Jk (θ^i k )
-                forget_loss = forget_loss - initial_loss_2
-                loss += initial_loss + gen_loss + forget_loss
-            else:
-                loss = self.criterion(self.model(inputs, current_task_id - 1), remapped_targets)
-
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
 
         return loss.detach(), out
-
-    def evaluate(self, tasks_test):
-        self.model.eval()
-        results = []
-
-        with torch.no_grad():
-            for task_id, test_loader in enumerate(tasks_test):
-                correct = 0
-                total = 0
-                for data, target in test_loader:
-                    outputs = self.model(data, task_id)
-                    remapped_target = remap_labels(target)
-                    _, predicted = torch.max(outputs.data, 1)
-                    total += target.size(0)
-                    correct += (predicted == remapped_target).sum().item()
-                accuracy = 100 * correct / total
-                results.append(accuracy)
-                print(f'Accuracy on Task {task_id + 1}: {accuracy:.2f}%')
-        return results
 
     def train_task(self, task_loader):
         self.model.train()
         self.task_memory[self.task_count] = task_loader
 
-        for data, target in task_loader:
-            loss, _ = self.update_model(data, target, self.task_count + 1)
+        replay_ratio = 0.15  # Percentage of previous task data to include
+        combined_data = []
 
+        if self.task_count > 0:
+            for prev_task_id in range(self.task_count):
+                prev_loader = self.task_memory[prev_task_id]
+                for data, target in prev_loader:
+                    combined_data.append((data, target, prev_task_id))
+
+            sample_size = int(replay_ratio * len(combined_data))
+            if sample_size > 0:
+                replay_data = random.sample(combined_data, sample_size)
+            else:
+                replay_data = []
+        else:
+            replay_data = []
+
+        full_inputs = []
+        full_targets = []
+        full_task_ids = []
+
+        for data, target in task_loader:
+            task_ids = [self.task_count] * len(data)  # Current task ID for current data
+            full_inputs.append(data)
+            full_targets.append(target)
+            full_task_ids.extend(task_ids)
+
+        if replay_data:
+            for replay_data_item, replay_target_item, replay_task_id in replay_data:
+                full_inputs.append(replay_data_item)
+                full_targets.append(replay_target_item)
+                full_task_ids.extend([replay_task_id] * len(replay_data_item))
+
+        # Concatenate all inputs and targets
+        combined_inputs = torch.cat(full_inputs, dim=0)
+        combined_targets = torch.cat(full_targets, dim=0)
+
+        loss_arr = []
+        for epoch in range(self.k_range):
+            for i in range(len(combined_inputs)):
+                single_input = combined_inputs[i].unsqueeze(0)
+                single_target = combined_targets[i].unsqueeze(0)
+                single_task_id = full_task_ids[i]
+
+                # print(single_input.shape)
+                # print(single_target.shape, single_target)
+                # print(single_task_id)
+
+                loss, _ = self.update_model(single_input, single_target, single_task_id)
+                loss_arr.append(loss)
+
+        # print(f"Loss after training on task {self.task_count + 1}: {loss_arr}")
+
+        self.task_count += 1
