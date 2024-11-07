@@ -43,9 +43,8 @@ class BCLModel:
 
     def update_model(self, data, target, task_id):
         target = remap_labels(target)
-        loss = 0.0
+        loss, gen_loss, forget_loss = 0.0, 0.0, 0.0
         out = self.model(data, task_id)
-        # print("Look Here: ", out, target)
         initial_loss = self.criterion(out, target)
 
         if self.task_count > 0:
@@ -53,7 +52,6 @@ class BCLModel:
             initial_loss_1 = self.criterion(self.model(data, task_id), target)
 
             # Player 1
-            gen_loss = None
             for _ in range(self.x_updates):
                 out = self.model(perturbed_input, task_id)
                 gen_loss = self.criterion(out, target)
@@ -72,7 +70,6 @@ class BCLModel:
             temp_model_optimizer = optim.SGD(temp_model.parameters(), lr=self.epsilon)
             initial_loss_2 = self.criterion(temp_model(data, task_id), target)
 
-            forget_loss = None
             for _ in range(self.theta_updates):
                 out = temp_model(data, task_id)
                 forget_loss = self.criterion(out, target)
@@ -83,7 +80,7 @@ class BCLModel:
 
             # Jk (θ^(i+ζ) k) − Jk (θ^i k )
             forget_loss = initial_loss_2 - forget_loss
-            loss += initial_loss + gen_loss + forget_loss
+            loss += initial_loss + gen_loss + forget_loss.detach()
         else:
             loss = self.criterion(self.model(data, task_id), target)
 
@@ -91,7 +88,7 @@ class BCLModel:
         loss.backward()
         self.optimizer.step()
 
-        return loss.detach(), out
+        return loss.detach(), initial_loss, gen_loss, forget_loss, out
 
     def train_task(self, task_loader):
         self.model.train()
@@ -134,20 +131,25 @@ class BCLModel:
         combined_inputs = torch.cat(full_inputs, dim=0)
         combined_targets = torch.cat(full_targets, dim=0)
 
-        loss_arr = []
+        initial_loss_list, gen_loss_list, forget_loss_list = [], [], []
+
         for epoch in range(self.k_range):
             for i in range(len(combined_inputs)):
                 single_input = combined_inputs[i].unsqueeze(0)
                 single_target = combined_targets[i].unsqueeze(0)
                 single_task_id = full_task_ids[i]
 
-                # print(single_input.shape)
-                # print(single_target.shape, single_target)
-                # print(single_task_id)
+                total_loss, initial_loss, gen_loss, forget_loss, _ = self.update_model(single_input, single_target,
+                                                                                       single_task_id)
 
-                loss, _ = self.update_model(single_input, single_target, single_task_id)
-                loss_arr.append(loss)
-
-        # print(f"Loss after training on task {self.task_count + 1}: {loss_arr}")
+                initial_loss_list.append(initial_loss.item())
+                if self.task_count > 0:
+                    gen_loss_list.append(gen_loss.item())
+                    forget_loss_list.append(forget_loss.item())
+                else:
+                    gen_loss_list.append(gen_loss)
+                    forget_loss_list.append(forget_loss)
 
         self.task_count += 1
+
+        return initial_loss_list, gen_loss_list, forget_loss_list
