@@ -30,7 +30,7 @@ def remap_labels(target):
 
 
 class BCLModel:
-    def __init__(self, model, lr=0.001, epsilon=0.01, k_range=100, x_updates=10, theta_updates=10):
+    def __init__(self, model, lr=0.001, epsilon=0.01, k_range=100, x_updates=15, theta_updates=15):
         self.model = model
         self.optimizer = optim.SGD(self.model.parameters(), lr=lr)
         self.criterion = nn.CrossEntropyLoss()

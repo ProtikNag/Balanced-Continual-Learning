@@ -1,12 +1,12 @@
 from task_specific_mlp import TaskSpecificMLP
 from split_mnist import load_split_mnist_data
 from bcl_model import BCLModel
-from visualize import plot_loss
+from visualize import plot_combined_loss
 
 
 def main():
     # Load data
-    tasks_train, tasks_test = load_split_mnist_data(batch_size=1, max_samples_per_task=20)
+    tasks_train, tasks_test = load_split_mnist_data(batch_size=1, max_samples_per_task=30)
 
     # Initialize model
     model = TaskSpecificMLP()
@@ -24,7 +24,7 @@ def main():
             "forget_loss": forget_loss,
         }
 
-    plot_loss(loss_by_task)
+    plot_combined_loss(loss_by_task)
 
 
 if __name__ == "__main__":
