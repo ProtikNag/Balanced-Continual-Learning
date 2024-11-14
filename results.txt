@@ -133,3 +133,32 @@ Accuracy on Task 3: 75.70%
 Accuracy on Task 4: 49.12%
 Accuracy on Task 5: 98.87%
 
+
+
+
+[[0, 4, 2, 1, 3], [1, 4, 2, 0, 3], [4, 3, 0, 2, 1], [1, 4, 2, 0, 3], [4, 3, 0, 1, 2]]
+
+Sequence 1: [0, 4, 2, 1, 3]
+
+Training on Task 1
+Accuracy on Task 1: 100.00%
+Accuracy on Task 2: 46.67%
+Accuracy on Task 3: 46.67%
+Accuracy on Task 4: 40.00%
+Accuracy on Task 5: 53.33%
+
+Training on Task 5
+Accuracy on Task 1: 93.33%
+Accuracy on Task 2: 53.33%
+Accuracy on Task 3: 46.67%
+Accuracy on Task 4: 40.00%
+Accuracy on Task 5: 53.33%
+
+Training on Task 3
+Accuracy on Task 1: 100.00%
+Accuracy on Task 2: 40.00%
+Accuracy on Task 3: 60.00%
+Accuracy on Task 4: 40.00%
+Accuracy on Task 5: 40.00%
+
+Training on Task 2

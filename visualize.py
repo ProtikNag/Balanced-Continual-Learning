@@ -5,7 +5,7 @@ import os
 os.makedirs('./figures', exist_ok=True)
 
 
-def plot_combined_loss(loss_by_task):
+def plot_combined_loss(loss_by_task, sequence_id):
     # Define colors for different loss types
     initial_loss_color = 'red'
     gen_loss_color = 'blue'
@@ -40,13 +40,13 @@ def plot_combined_loss(loss_by_task):
             current_iteration += len(losses["initial_loss"])  # Shift iteration index for the next task
 
     # Labels and title
-    plt.xlabel('Update Iteration', fontsize=18)
-    plt.ylabel('Loss Value', fontsize=18)
-    plt.title('Combined Loss Progression Across 5 Tasks', fontsize=20)
-    plt.xticks(fontsize=14)
-    plt.yticks(fontsize=14)
-    plt.legend(loc='upper right', fontsize=14)
+    plt.xlabel('Update Iteration', fontsize=20)
+    plt.ylabel('Loss Value', fontsize=20)
+    plt.title(f'Combined Loss Progression for Random Task Sequence {sequence_id}', fontsize=20)
+    plt.xticks(fontsize=20)
+    plt.yticks(fontsize=20)
+    plt.legend(loc='upper right', fontsize=20)
     plt.grid(True)
 
     # Save the combined plot
-    plt.savefig('./figures/combined_loss.pdf')
+    plt.savefig(f'./figures/loss_figures/combined_loss_sequence_{sequence_id}.pdf')
