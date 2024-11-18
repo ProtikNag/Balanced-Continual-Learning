@@ -6,7 +6,7 @@ import random
 import torch
 
 
-def add_noise_to_task(data_loader, noise_level=0.1):
+def add_noise_to_task(data_loader, noise_level=0.15):
     noisy_data = []
     for data, target in data_loader:
         noise = torch.randn_like(data) * noise_level
@@ -17,7 +17,7 @@ def add_noise_to_task(data_loader, noise_level=0.1):
 
 def main():
     # Load data
-    tasks_train, tasks_test = load_split_mnist_data(batch_size=64, max_samples_per_task=200)
+    tasks_train, tasks_test = load_split_mnist_data(batch_size=32, max_samples_per_task=200)
 
     # Add noise to task 5
     tasks_train[4] = add_noise_to_task(tasks_train[4], noise_level=0.1)

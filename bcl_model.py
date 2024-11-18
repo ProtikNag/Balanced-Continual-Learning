@@ -110,7 +110,7 @@ class BCLModel:
         self.model.train()
         self.task_memory[self.task_count] = task_loader
 
-        replay_ratio = 0.15  # Percentage of previous task data to include
+        replay_ratio = 0.25  # Percentage of previous task data to include
         combined_data = []
 
         if self.task_count > 0:
@@ -145,7 +145,7 @@ class BCLModel:
 
         initial_loss_list, gen_loss_list, forget_loss_list = [], [], []
 
-        batch_size = 64
+        batch_size = 32
         num_samples = len(combined_inputs)
 
         for epoch in range(self.k_range):
