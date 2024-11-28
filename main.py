@@ -1,12 +1,12 @@
 from task_specific_mlp import TaskSpecificMLP
 from split_mnist import load_split_mnist_data
 from bcl_model import BCLModel
-from visualize import plot_combined_loss, plot_combined_acc
+from visualize import plot_combined_loss, plot_combined_acc, plot_taskwise_accuracy_progression
 import random
 import torch
 
 
-def add_noise_to_task(data_loader, noise_level=0.15):
+def add_noise_to_task(data_loader, noise_level=0.20):
     noisy_data = []
     for data, target in data_loader:
         noise = torch.randn_like(data) * noise_level
@@ -20,8 +20,8 @@ def main():
     tasks_train, tasks_test = load_split_mnist_data(batch_size=32, max_samples_per_task=200)
 
     # Add noise to task 5
-    tasks_train[4] = add_noise_to_task(tasks_train[4], noise_level=0.1)
-    tasks_test[4] = add_noise_to_task(tasks_test[4], noise_level=0.1)
+    tasks_train[4] = add_noise_to_task(tasks_train[4], noise_level=0.20)
+    tasks_test[4] = add_noise_to_task(tasks_test[4], noise_level=0.20)
 
     # Generate 5 different random sequences of task orders
     task_sequences = [
@@ -59,6 +59,7 @@ def main():
 
         plot_combined_loss(loss_by_task, sequence_id=i + 1)
         plot_combined_acc(acc_by_task, sequence_id=i + 1)
+        plot_taskwise_accuracy_progression(acc_by_task, sequence_id=i + 1)
 
 
 if __name__ == "__main__":

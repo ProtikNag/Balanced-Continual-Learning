@@ -89,7 +89,7 @@ def plot_combined_acc(acc_by_task, sequence_id):
     plt.title(f'Accuracy Progression for Random Task Sequence {sequence_id}', fontsize=16)
 
     # X-axis ticks and legend
-    plt.xticks(x + (num_tasks - 1) * bar_width / 2, [f'Task {i+1}' for i in range(num_stages)], fontsize=12)
+    plt.xticks(x + (num_tasks - 1) * bar_width / 2, [f'Task {i + 1}' for i in range(num_stages)], fontsize=12)
     plt.yticks(fontsize=12)
     plt.legend(loc='upper left', fontsize=12)
 
@@ -99,4 +99,46 @@ def plot_combined_acc(acc_by_task, sequence_id):
     # Save the grouped bar plot
     os.makedirs('./figures/accuracy_figures', exist_ok=True)
     plt.savefig(f'./figures/accuracy_figures/combined_accuracy_sequence_{sequence_id}_bar.pdf')
+    plt.close()
+
+
+def plot_taskwise_accuracy_progression(acc_by_task, sequence_id):
+    """
+    Plots the accuracy progression for all tasks in a random sequence as a line graph.
+
+    Args:
+        acc_by_task (dict): Dictionary containing accuracy results for each task.
+        sequence_id (int): Identifier for the random task sequence.
+    """
+    # Define task names and corresponding colors
+    task_names = list(acc_by_task[0].keys())  # e.g., ['Task_1', 'Task_2', ...]
+    task_colors = ["blue", "orange", "green", "red", "purple"]
+
+    # Extract accuracy values for each task across all stages
+    num_stages = len(acc_by_task)
+
+    plt.figure(figsize=(10, 6))
+
+    # Plot accuracy progression for each task
+    for i, task_name in enumerate(task_names):
+        accuracies = [acc_by_task[stage][task_name] for stage in acc_by_task]
+        plt.plot(range(1, num_stages + 1), accuracies, marker='o', label=task_name,
+                 color=task_colors[i % len(task_colors)])
+
+    # Labels and title
+    plt.xlabel('Training Stage', fontsize=14)
+    plt.ylabel('Accuracy (%)', fontsize=14)
+    plt.title(f'Accuracy Progression for Task Sequence {sequence_id}', fontsize=16)
+
+    # X-axis ticks and legend
+    plt.xticks(range(1, num_stages + 1), [f'Training Stage {i + 1}' for i in range(num_stages)], fontsize=12)
+    plt.yticks(fontsize=12)
+    plt.legend(loc='upper right', fontsize=12)
+
+    # Add grid for better readability
+    plt.grid(axis='both', linestyle='--', alpha=0.7)
+
+    # Save the plot
+    os.makedirs('./figures/accuracy_figures', exist_ok=True)
+    plt.savefig(f'./figures/accuracy_figures/taskwise_accuracy_sequence_{sequence_id}_line.pdf')
     plt.close()
