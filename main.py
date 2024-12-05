@@ -1,5 +1,5 @@
-from task_specific_mlp import TaskSpecificMLP
-from split_mnist import load_split_mnist_data
+from task_specific_gcn import TaskSpecificMLP
+from split_cora import load_split_mnist_data
 from bcl_model import BCLModel
 from visualize import plot_combined_loss, plot_combined_acc, plot_taskwise_accuracy_progression
 import random
