@@ -1,0 +1,25 @@
+Jobid: 836880
+qsub -n 1 -t 6:00:00 -q gpu_v100_smx2 run_script.sh
+Mon Dec 09 01:50:38 2024 +0000 (UTC) submitted with cwd set to: /home/kraghavan/current/Balanced-Continual-Learning
+jobid 836880 submitted from terminal /dev/pts/35
+Mon Dec 09 01:51:00 2024 +0000 (UTC) 
+Mon Dec 09 01:51:00 2024 +0000 (UTC) Command: '/usr/bin/ssh' 'gpu02' '/usr/libexec/cobalt/cobalt-launcher.py' '--nf' '/var/tmp/cobalt.836880' '--jobid' '836880' '--cwd' '/home/kraghavan/current/Balanced-Continual-Learning' '--env' 'COBALT_JOBID=836880' '/home/kraghavan/current/Balanced-Continual-Learning/run_script.sh'
+Mon Dec 09 01:51:00 2024 +0000 (UTC) 
+Mon Dec 09 01:51:00 2024 +0000 (UTC) Environment:
+Mon Dec 09 01:51:00 2024 +0000 (UTC) SHELL=/bin/bash
+Mon Dec 09 01:51:00 2024 +0000 (UTC) COBALT_NODEFILE=/tmp/tmpFFUuHF
+Mon Dec 09 01:51:00 2024 +0000 (UTC) COBALT_PARTNAME=gpu02
+Mon Dec 09 01:51:00 2024 +0000 (UTC) COBALT_JOBID=836880
+Mon Dec 09 01:51:00 2024 +0000 (UTC) COBALT_STARTTIME=1733709048
+Mon Dec 09 01:51:00 2024 +0000 (UTC) LOGNAME=kraghavan
+Mon Dec 09 01:51:00 2024 +0000 (UTC) USER=kraghavan
+Mon Dec 09 01:51:00 2024 +0000 (UTC) COBALT_ENDTIME=1733730648
+Mon Dec 09 01:51:00 2024 +0000 (UTC) COBALT_PARTSIZE=1
+Mon Dec 09 01:51:00 2024 +0000 (UTC) HOME=/home/kraghavan
+Mon Dec 09 01:51:00 2024 +0000 (UTC) COBALT_JOBSIZE=1
+Mon Dec 09 01:51:00 2024 +0000 (UTC) 
+Mon Dec 09 01:51:00 2024 +0000 (UTC) Info: stdin received from /dev/null
+Mon Dec 09 01:51:00 2024 +0000 (UTC) Info: stdout sent to /home/kraghavan/current/Balanced-Continual-Learning/836880.output
+Mon Dec 09 01:51:00 2024 +0000 (UTC) Info: stderr sent to /home/kraghavan/current/Balanced-Continual-Learning/836880.error
+Mon Dec 09 01:51:00 2024 +0000 (UTC) 
+Mon Dec 09 02:15:36 2024 +0000 (UTC) Info: task completed normally with an exit code of 0; initiating job cleanup and removal

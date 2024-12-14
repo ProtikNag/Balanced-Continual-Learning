@@ -1,0 +1,7 @@
+/home/kraghavan/.zshrc: line 7: autoload: command not found
+/home/kraghavan/.zshrc: line 8: compinit: command not found
+/home/kraghavan/.zshrc: line 11: setopt: command not found
+/home/kraghavan/.zshrc: line 7: autoload: command not found
+/home/kraghavan/.zshrc: line 8: compinit: command not found
+/home/kraghavan/.zshrc: line 11: setopt: command not found
+Killed by signal 15.

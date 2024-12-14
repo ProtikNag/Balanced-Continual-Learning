@@ -1,36 +1,36 @@
-from task_specific_mlp import TaskSpecificMLP
-from split_mnist import load_split_mnist_data
+from task_specific_gcn import GraphClassificationGCN
+from split_data import load_and_split
 from bcl_model import BCLModel
 from visualize import plot_combined_loss, plot_combined_acc, plot_taskwise_accuracy_progression
 import random
 import torch
+import itertools
 
-
-def add_noise_to_task(data_loader, noise_level=0.20):
-    noisy_data = []
-    for data, target in data_loader:
-        noise = torch.randn_like(data) * noise_level
-        noisy_data.append((data + noise, target))
-
-    return noisy_data
+# Automate task sequence generation
+def generate_task_sequences(num_tasks):
+    # Generate random sequences by shuffling the task indices
+    sequences = [
+        [7, 0, 1, 2, 3, 4, 5, 6, 8, 9],
+        [0, 7, 1, 2, 3, 4, 5, 6, 8, 9],
+        [0, 1, 7, 2, 3, 4, 5, 6, 8, 9],
+        [0, 1, 2, 7, 3, 4, 5, 6, 8, 9],
+        [0, 1, 2, 3, 7, 4, 5, 6, 8, 9],
+        [0, 1, 2, 3, 4, 7, 5, 6, 8, 9],
+        [0, 1, 2, 3, 4, 5, 7, 6, 8, 9],
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        [0, 1, 2, 3, 4, 5, 6, 8, 7, 9],
+        [0, 1, 2, 3, 4, 5, 6, 8, 9, 7],
+    ]
+    return sequences
 
 
 def main():
     # Load data
-    tasks_train, tasks_test = load_split_mnist_data(batch_size=32, max_samples_per_task=200)
+    num_tasks = 10
+    tasks_train, tasks_test, task_classes = load_and_split(batch_size=16, tasks=num_tasks)
 
-    # Add noise to task 5
-    tasks_train[4] = add_noise_to_task(tasks_train[4], noise_level=0.20)
-    tasks_test[4] = add_noise_to_task(tasks_test[4], noise_level=0.20)
-
-    # Generate 5 different random sequences of task orders
-    task_sequences = [
-        [4, 0, 1, 2, 3],
-        [0, 4, 1, 2, 3],
-        [0, 1, 4, 2, 3],
-        [0, 1, 2, 4, 3],
-        [0, 1, 2, 3, 4],
-    ]
+    # Generate random sequences of task orders
+    task_sequences = generate_task_sequences(num_tasks)
 
     for i, task_order in enumerate(task_sequences):
         print(f"\nSequence {i + 1}: {task_order}")
@@ -38,11 +38,17 @@ def main():
         acc_by_task = {}
 
         # Initialize model
-        model = TaskSpecificMLP()
+        input_features = tasks_train[0].dataset[0].x.shape[1]  # Dynamically fetch input features
+        output_classes = len(task_classes)  # Dynamically fetch total number of classes
+        model = GraphClassificationGCN(
+            input_features=input_features,
+            hidden_features=64,
+            output_classes=output_classes
+        )
         bcl_model = BCLModel(model)
 
         for task_id, task_index in enumerate(task_order):
-            print(f"\nTraining on Task {task_index + 1}")
+            print(f"\nTraining on Task {task_index + 1} (Classes: {task_classes[task_index]})")
 
             train_task_loader = tasks_train[task_index]
             initial_loss, gen_loss, forget_loss = bcl_model.train_task(train_task_loader)

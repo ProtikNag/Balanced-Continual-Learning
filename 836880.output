@@ -1,0 +1,65 @@
+
+Sequence 1: [4, 0, 1, 2, 3]
+
+Training on Task 5
+
+Training on Task 1
+
+Training on Task 2
+
+Training on Task 3
+
+Training on Task 4
+{0: {'Task_1': 39.0, 'Task_2': 53.0, 'Task_3': 13.0, 'Task_4': 76.0, 'Task_5': 94.0}, 1: {'Task_1': 100.0, 'Task_2': 50.0, 'Task_3': 16.0, 'Task_4': 84.0, 'Task_5': 88.0}, 2: {'Task_1': 98.0, 'Task_2': 95.0, 'Task_3': 42.0, 'Task_4': 89.0, 'Task_5': 93.0}, 3: {'Task_1': 91.0, 'Task_2': 93.0, 'Task_3': 93.0, 'Task_4': 82.0, 'Task_5': 95.0}, 4: {'Task_1': 89.0, 'Task_2': 92.0, 'Task_3': 89.0, 'Task_4': 99.0, 'Task_5': 93.0}}
+
+Sequence 2: [0, 4, 1, 2, 3]
+
+Training on Task 1
+
+Training on Task 5
+
+Training on Task 2
+
+Training on Task 3
+
+Training on Task 4
+{0: {'Task_1': 100.0, 'Task_2': 44.0, 'Task_3': 42.0, 'Task_4': 57.0, 'Task_5': 49.0}, 1: {'Task_1': 86.0, 'Task_2': 51.0, 'Task_3': 9.0, 'Task_4': 87.0, 'Task_5': 92.0}, 2: {'Task_1': 99.0, 'Task_2': 95.0, 'Task_3': 49.0, 'Task_4': 90.0, 'Task_5': 85.0}, 3: {'Task_1': 96.0, 'Task_2': 93.0, 'Task_3': 98.0, 'Task_4': 61.0, 'Task_5': 44.0}, 4: {'Task_1': 95.0, 'Task_2': 93.0, 'Task_3': 83.0, 'Task_4': 99.0, 'Task_5': 92.0}}
+
+Sequence 3: [0, 1, 4, 2, 3]
+
+Training on Task 1
+
+Training on Task 2
+
+Training on Task 5
+
+Training on Task 3
+
+Training on Task 4
+{0: {'Task_1': 100.0, 'Task_2': 48.0, 'Task_3': 40.0, 'Task_4': 64.0, 'Task_5': 46.0}, 1: {'Task_1': 100.0, 'Task_2': 98.0, 'Task_3': 73.0, 'Task_4': 83.0, 'Task_5': 50.0}, 2: {'Task_1': 97.0, 'Task_2': 84.0, 'Task_3': 23.0, 'Task_4': 89.0, 'Task_5': 92.0}, 3: {'Task_1': 98.0, 'Task_2': 94.0, 'Task_3': 95.0, 'Task_4': 68.0, 'Task_5': 44.0}, 4: {'Task_1': 99.0, 'Task_2': 93.0, 'Task_3': 94.0, 'Task_4': 97.0, 'Task_5': 68.0}}
+
+Sequence 4: [0, 1, 2, 4, 3]
+
+Training on Task 1
+
+Training on Task 2
+
+Training on Task 3
+
+Training on Task 5
+
+Training on Task 4
+{0: {'Task_1': 99.0, 'Task_2': 46.0, 'Task_3': 39.0, 'Task_4': 71.0, 'Task_5': 46.0}, 1: {'Task_1': 99.0, 'Task_2': 97.0, 'Task_3': 74.0, 'Task_4': 82.0, 'Task_5': 45.0}, 2: {'Task_1': 97.0, 'Task_2': 86.0, 'Task_3': 96.0, 'Task_4': 51.0, 'Task_5': 28.0}, 3: {'Task_1': 90.0, 'Task_2': 91.0, 'Task_3': 86.0, 'Task_4': 85.0, 'Task_5': 95.0}, 4: {'Task_1': 98.0, 'Task_2': 95.0, 'Task_3': 89.0, 'Task_4': 96.0, 'Task_5': 85.0}}
+
+Sequence 5: [0, 1, 2, 3, 4]
+
+Training on Task 1
+
+Training on Task 2
+
+Training on Task 3
+
+Training on Task 4
+
+Training on Task 5
+{0: {'Task_1': 99.0, 'Task_2': 50.0, 'Task_3': 42.0, 'Task_4': 67.0, 'Task_5': 51.0}, 1: {'Task_1': 99.0, 'Task_2': 97.0, 'Task_3': 74.0, 'Task_4': 83.0, 'Task_5': 52.0}, 2: {'Task_1': 99.0, 'Task_2': 88.0, 'Task_3': 96.0, 'Task_4': 49.0, 'Task_5': 29.0}, 3: {'Task_1': 98.0, 'Task_2': 91.0, 'Task_3': 86.0, 'Task_4': 99.0, 'Task_5': 67.0}, 4: {'Task_1': 96.0, 'Task_2': 96.0, 'Task_3': 82.0, 'Task_4': 94.0, 'Task_5': 96.0}}
