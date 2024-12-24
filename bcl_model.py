@@ -9,15 +9,11 @@ random.seed(42)
 torch.autograd.set_detect_anomaly(True)
 
 
-def remap_labels(target):
-    return target % 10
-
-
 class BCLModel:
     def __init__(self, model, lr=0.01, epsilon=0.01, k_range=50, x_updates=10, theta_updates=10):
         self.model = model
         self.optimizer = optim.SGD(self.model.parameters(), lr=lr)
-        self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.MSELoss()
         self.lr = lr
         self.epsilon = epsilon  # Perturbation strength for Player 1
         self.beta = 0.9
@@ -32,7 +28,6 @@ class BCLModel:
         return grad / grad.norm(p, dim, True).clamp(min=eps).expand_as(grad)
 
     def update_model(self, x, edge_index, target, batch):
-        target = remap_labels(target)
         out = self.model(x, edge_index, batch)
         gen_loss, forget_loss = 0, 0
         initial_loss = self.criterion(out, target)
@@ -86,25 +81,23 @@ class BCLModel:
 
         with torch.no_grad():
             for task_id, test_loader in enumerate(tasks_test):
-                correct = 0
-                total = 0
+                total_loss = 0.0
+                total_samples = 0
 
                 for batch in test_loader:
-                    x = batch.x.to(next(self.model.parameters()).device)
-                    edge_index = batch.edge_index.to(next(self.model.parameters()).device)
-                    batch_attr = batch.batch.to(next(self.model.parameters()).device)
-                    target = batch.y.to(next(self.model.parameters()).device)
+                    x, target = batch  # Unpack x and y from BatchWrapper
+                    x = x.to(next(self.model.parameters()).device)
+                    target = target.to(next(self.model.parameters()).device)
 
-                    outputs = self.model(x, edge_index, batch_attr)
-                    remapped_target = remap_labels(target)
-                    _, predicted = torch.max(outputs.data, 1)
+                    outputs = self.model(x)
+                    loss = self.criterion(outputs, target)
 
-                    total += target.size(0)
-                    correct += (predicted == remapped_target).sum().item()
+                    total_loss += loss.item() * len(x)
+                    total_samples += len(x)
 
-                # Store accuracy for the task
-                accuracy = 100 * correct / total if total > 0 else 0.0
-                results[f'Task_{task_id + 1}'] = accuracy
+                # Store average loss for the task
+                average_loss = total_loss / total_samples if total_samples > 0 else float('inf')
+                results[f'Task_{task_id + 1}'] = average_loss
 
         return results
 

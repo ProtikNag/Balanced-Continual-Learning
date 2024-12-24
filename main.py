@@ -1,10 +1,10 @@
-from task_specific_gcn import GraphClassificationGCN
-from split_data import load_and_split
+import torch
+from torch.utils.data import DataLoader
+from split_data import create_task_datasets, split_and_load_tasks
 from bcl_model import BCLModel
 from visualize import plot_combined_loss, plot_combined_acc, plot_taskwise_accuracy_progression
+from fnn import FeedForwardNN
 import random
-import torch
-import itertools
 
 # Automate task sequence generation
 def generate_task_sequences(num_tasks):
@@ -23,11 +23,17 @@ def generate_task_sequences(num_tasks):
     ]
     return sequences
 
-
 def main():
-    # Load data
+    # Number of tasks and samples per task
     num_tasks = 10
-    tasks_train, tasks_test, task_classes = load_and_split(batch_size=16, tasks=num_tasks)
+    num_samples = 1000
+    batch_size = 16
+
+    # Generate datasets for all tasks
+    tasks = create_task_datasets(num_tasks=num_tasks, num_samples=num_samples)
+
+    # Split datasets into train and test loaders
+    tasks_train, tasks_test = split_and_load_tasks(tasks, batch_size=batch_size)
 
     # Generate random sequences of task orders
     task_sequences = generate_task_sequences(num_tasks)
@@ -38,21 +44,25 @@ def main():
         acc_by_task = {}
 
         # Initialize model
-        input_features = tasks_train[0].dataset[0].x.shape[1]  # Dynamically fetch input features
-        output_classes = len(task_classes)  # Dynamically fetch total number of classes
-        model = GraphClassificationGCN(
+        input_features = 1  # Sine wave input is a single value (time step)
+        hidden_features = 64
+        output_classes = 1  # Regression task for sine wave amplitude
+        model = FeedForwardNN(
             input_features=input_features,
-            hidden_features=64,
-            output_classes=output_classes
+            hidden_features=hidden_features,
+            output_classes=output_classes,
+            dropout=0.20
         )
         bcl_model = BCLModel(model)
 
         for task_id, task_index in enumerate(task_order):
-            print(f"\nTraining on Task {task_index + 1} (Classes: {task_classes[task_index]})")
+            print(f"\nTraining on Task {task_index + 1}")
 
             train_task_loader = tasks_train[task_index]
+            test_task_loader = tasks_test[task_index]
+
             initial_loss, gen_loss, forget_loss = bcl_model.train_task(train_task_loader)
-            accuracy_results = bcl_model.evaluate(tasks_test)
+            accuracy_results = bcl_model.evaluate(test_task_loader)
 
             loss_by_task[task_id] = {
                 "initial_loss": initial_loss,
@@ -66,7 +76,6 @@ def main():
         plot_combined_loss(loss_by_task, sequence_id=i + 1)
         plot_combined_acc(acc_by_task, sequence_id=i + 1)
         plot_taskwise_accuracy_progression(acc_by_task, sequence_id=i + 1)
-
 
 if __name__ == "__main__":
     main()
