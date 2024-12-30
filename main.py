@@ -1,4 +1,4 @@
-from task_specific_gcn import GraphClassificationGCN
+from fnn import FNN
 from split_data import load_and_split
 from bcl_model import BCLModel
 from visualize import plot_combined_loss, plot_combined_acc, plot_taskwise_accuracy_progression
@@ -27,7 +27,7 @@ def generate_task_sequences(num_tasks):
 def main():
     # Load data
     num_tasks = 10
-    tasks_train, tasks_test, task_classes = load_and_split(batch_size=16, tasks=num_tasks)
+    tasks_train, tasks_test = load_and_split(batch_size=64, tasks=num_tasks)
 
     # Generate random sequences of task orders
     task_sequences = generate_task_sequences(num_tasks)
@@ -38,34 +38,34 @@ def main():
         acc_by_task = {}
 
         # Initialize model
-        input_features = tasks_train[0].dataset[0].x.shape[1]  # Dynamically fetch input features
-        output_classes = len(task_classes)  # Dynamically fetch total number of classes
-        model = GraphClassificationGCN(
+        input_features = 1
+        output_classes = 1
+        model = FNN(
             input_features=input_features,
-            hidden_features=64,
+            hidden_features=32,
             output_classes=output_classes
         )
         bcl_model = BCLModel(model)
 
         for task_id, task_index in enumerate(task_order):
-            print(f"\nTraining on Task {task_index + 1} (Classes: {task_classes[task_index]})")
+            print(f"\nTraining on Task {task_index + 1}")
 
             train_task_loader = tasks_train[task_index]
             initial_loss, gen_loss, forget_loss = bcl_model.train_task(train_task_loader)
-            accuracy_results = bcl_model.evaluate(tasks_test)
+            test_loss_results = bcl_model.evaluate(tasks_test)
 
             loss_by_task[task_id] = {
                 "initial_loss": initial_loss,
                 "gen_loss": gen_loss,
                 "forget_loss": forget_loss,
             }
-            acc_by_task[task_id] = accuracy_results
+            acc_by_task[task_id] = test_loss_results
 
         print(acc_by_task)
 
         plot_combined_loss(loss_by_task, sequence_id=i + 1)
-        plot_combined_acc(acc_by_task, sequence_id=i + 1)
-        plot_taskwise_accuracy_progression(acc_by_task, sequence_id=i + 1)
+        plot_combined_acc(test_loss_results, sequence_id=i + 1)
+        plot_taskwise_accuracy_progression(test_loss_results, sequence_id=i + 1)
 
 
 if __name__ == "__main__":

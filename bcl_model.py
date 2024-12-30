@@ -8,16 +8,11 @@ import random
 random.seed(42)
 torch.autograd.set_detect_anomaly(True)
 
-
-def remap_labels(target):
-    return target % 10
-
-
 class BCLModel:
     def __init__(self, model, lr=0.01, epsilon=0.01, k_range=50, x_updates=10, theta_updates=10):
         self.model = model
         self.optimizer = optim.SGD(self.model.parameters(), lr=lr)
-        self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.MSELoss()
         self.lr = lr
         self.epsilon = epsilon  # Perturbation strength for Player 1
         self.beta = 0.9
@@ -31,48 +26,47 @@ class BCLModel:
     def normalize_grad(grad, p=2, dim=1, eps=1e-12):
         return grad / grad.norm(p, dim, True).clamp(min=eps).expand_as(grad)
 
-    def update_model(self, x, edge_index, target, batch):
-        target = remap_labels(target)
-        out = self.model(x, edge_index, batch)
+    def update_model(self, x, target):
+        out = self.model(x)
         gen_loss, forget_loss = 0, 0
         initial_loss = self.criterion(out, target)
 
         if self.task_count > 0:
-            total_loss = self.beta * self.criterion(self.model(x, edge_index, batch), target)
+            total_loss = self.beta * self.criterion(self.model(x), target)
             perturbed_input = x.clone().detach().requires_grad_(True)
             adv_grad = 0
-            J_PN_x = self.criterion(self.model(perturbed_input, edge_index, batch), target)
+            J_PN_x = self.criterion(self.model(perturbed_input), target)
 
             # Player 1
             for _ in range(self.x_updates):
                 perturbed_input = perturbed_input + self.epsilon * adv_grad
                 adv_grad = torch.autograd.grad(
-                    self.criterion(self.model(perturbed_input, edge_index, batch), target), perturbed_input
+                    self.criterion(self.model(perturbed_input), target), perturbed_input
                 )[0]
                 adv_grad = self.normalize_grad(adv_grad)
 
             # Jk+ζ (θ k ) − Jk (θ k )
-            gen_loss = self.criterion(self.model(perturbed_input, edge_index, batch), target)
+            gen_loss = self.criterion(self.model(perturbed_input), target)
             gen_loss = gen_loss - J_PN_x
 
             # Player 2
-            J_P = self.criterion(self.model(x, edge_index, batch), target)
+            J_P = self.criterion(self.model(x), target)
             temp_model = copy.deepcopy(self.model)
             temp_model_optimizer = optim.SGD(temp_model.parameters(), lr=self.lr)
-            J_PN_theta = self.criterion(self.model(x, edge_index, batch), target)
+            J_PN_theta = self.criterion(self.model(x), target)
 
             for _ in range(self.theta_updates):
                 temp_model_optimizer.zero_grad()
-                out = temp_model(x, edge_index, batch)
+                out = temp_model(x)
                 forget_loss = self.criterion(out, target)
                 forget_loss.backward(retain_graph=True)
                 temp_model_optimizer.step()
 
             # Jk (θ^i k ) - Jk (θ^(i+ζ) k)
-            forget_loss = J_PN_theta - self.criterion(temp_model(x, edge_index, batch), target)
+            forget_loss = J_PN_theta - self.criterion(temp_model(x), target)
             total_loss += J_P + forget_loss + gen_loss
         else:
-            total_loss = self.criterion(self.model(x, edge_index, batch), target)
+            total_loss = self.criterion(self.model(x), target)
 
         self.optimizer.zero_grad()
         total_loss.backward()
@@ -86,25 +80,22 @@ class BCLModel:
 
         with torch.no_grad():
             for task_id, test_loader in enumerate(tasks_test):
-                correct = 0
-                total = 0
+                total_loss = 0
+                total_samples = 0
 
                 for batch in test_loader:
-                    x = batch.x.to(next(self.model.parameters()).device)
-                    edge_index = batch.edge_index.to(next(self.model.parameters()).device)
-                    batch_attr = batch.batch.to(next(self.model.parameters()).device)
-                    target = batch.y.to(next(self.model.parameters()).device)
+                    x = batch[0].to(next(self.model.parameters()).device)
+                    target = batch[1].to(next(self.model.parameters()).device)
 
-                    outputs = self.model(x, edge_index, batch_attr)
-                    remapped_target = remap_labels(target)
-                    _, predicted = torch.max(outputs.data, 1)
+                    outputs = self.model(x)
+                    loss = self.criterion(outputs, target)
 
-                    total += target.size(0)
-                    correct += (predicted == remapped_target).sum().item()
+                    total_loss += loss.item() * x.size(0)
+                    total_samples += x.size(0)
 
                 # Store accuracy for the task
-                accuracy = 100 * correct / total if total > 0 else 0.0
-                results[f'Task_{task_id + 1}'] = accuracy
+                avg_loss = total_loss / total_samples if total_samples > 0 else float('inf')
+                results[f'Task_{task_id + 1}'] = avg_loss
 
         return results
 
@@ -130,6 +121,7 @@ class BCLModel:
             replay_data = []
 
         for batch in task_loader:
+            print(batch)
             combined_batches.append(batch)
 
         combined_batches.extend(replay_data)
@@ -139,16 +131,12 @@ class BCLModel:
 
         for epoch in range(self.k_range):
             for batch in combined_batches:
-                x = batch.x
-                edge_index = batch.edge_index
-                target = batch.y
-                batch_attr = batch.batch
+                x = batch[0]
+                target = batch[1]
 
                 total_loss, initial_loss, gen_loss, forget_loss, _ = self.update_model(
                     x,
-                    edge_index,
                     target,
-                    batch_attr
                 )
 
                 initial_loss_list.append(initial_loss.item())
