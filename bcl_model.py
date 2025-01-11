@@ -101,7 +101,7 @@ class BCLModel:
                     correct += (predicted == remapped_target).sum().item()  # Count correct predictions
 
                 # Calculate accuracy for the task
-                accuracy = 100 * correct / total if total > 0 else 0.0
+                accuracy = correct / total if total > 0 else 0.0
                 results[f'Task_{task_id + 1}'] = accuracy
 
         return results

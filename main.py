@@ -15,23 +15,26 @@ def add_noise_to_task(data_loader, noise_level=0.20):
     return noisy_data
 
 
-def calculate_average_accuracy(acc_by_task, task_order):
-    total_accuracy = 0
-    for task_id in acc_by_task:
-        task_accuracies = [acc_by_task[tid][f'Task_{i + 1}'] for tid, i in enumerate(task_order[:task_id + 1])]
-        total_accuracy += sum(task_accuracies) / len(task_accuracies)
-
-    average_accuracy = total_accuracy / len(task_order)
-    return average_accuracy
+def calculate_average_acc(acc_by_task):
+    total_acc = 0
+    for task_id, task_acc in acc_by_task.items():
+        total_acc += task_acc
+    average_acc = total_acc / len(acc_by_task)
+    return average_acc
 
 
-def calculate_average_forgetting(acc_by_task, task_order):
-    total_forgetting = 0
-    t = len(task_order)
+def calculate_total_forgetting(task_accuracies):
+    tasks = list(task_accuracies.values())
+    t = len(tasks)
+
+    if t < 2:
+        return 0.0  # If there is only one task, no forgetting can occur
+
+    total_forgetting = 0.0
     for i in range(t - 1):
-        max_accuracy = max([acc_by_task[j][f'Task_{i + 1}'] for j in range(i + 1)])
-        final_accuracy = acc_by_task[t - 1][f'Task_{i + 1}']
-        total_forgetting += max_accuracy - final_accuracy
+        forgetting = max(tasks[j] - tasks[t - 1] for j in range(i + 1))
+        total_forgetting += forgetting
+
     average_forgetting = total_forgetting / (t - 1)
     return average_forgetting
 
@@ -53,45 +56,39 @@ def main():
         [0, 1, 2, 3, 4],
     ]
 
-    with open("results.txt", "w") as results_file:
-        for i, task_order in enumerate(task_sequences):
-            print(f"\nSequence {i + 1}: {task_order}")
-            results_file.write(f"\nSequence {i + 1}: {task_order}\n")
-            loss_by_task = {}
-            acc_by_task = {}
+    for i, task_order in enumerate(task_sequences):
+        print(f"\nSequence {i + 1}: {task_order}")
+        loss_by_task = {}
+        acc_by_task = {}
 
-            # Initialize model
-            model = TaskSpecificMLP()
-            bcl_model = BCLModel(model)
+        # Initialize model
+        model = TaskSpecificMLP()
+        bcl_model = BCLModel(model)
 
-            for task_id, task_index in enumerate(task_order):
-                print(f"\nTraining on Task {task_index + 1}")
+        for task_id, task_index in enumerate(task_order):
+            print(f"\nTraining on Task {task_index + 1}")
 
-                train_task_loader = tasks_train[task_index]
-                initial_loss, gen_loss, forget_loss = bcl_model.train_task(train_task_loader)
-                accuracy_results = bcl_model.evaluate(tasks_test)
+            train_task_loader = tasks_train[task_index]
+            initial_loss, gen_loss, forget_loss = bcl_model.train_task(train_task_loader)
+            accuracy_results = bcl_model.evaluate(tasks_test)
 
-                loss_by_task[task_id] = {
-                    "initial_loss": initial_loss,
-                    "gen_loss": gen_loss,
-                    "forget_loss": forget_loss,
-                }
-                acc_by_task[task_id] = accuracy_results
+            loss_by_task[task_id] = {
+                "initial_loss": initial_loss,
+                "gen_loss": gen_loss,
+                "forget_loss": forget_loss,
+            }
+            acc_by_task[task_id] = accuracy_results
 
-            # Calculate average accuracy and forgetting
-            average_accuracy = calculate_average_accuracy(acc_by_task, task_order)
-            average_forgetting = calculate_average_forgetting(acc_by_task, task_order)
+        print("Accuracy by Task:","\n",acc_by_task)
 
-            results_file.write(f"Average Accuracy: {average_accuracy:.2f}%\n")
-            results_file.write(f"Average Forgetting: {average_forgetting:.2f}%\n\n")
+        average_accuracy = calculate_average_acc(acc_by_task[4])
+        average_forgetting = calculate_total_forgetting(acc_by_task[4])
+        print(f"Average Accuracy: {average_accuracy}")
+        print(f"Average Forgetting: {average_forgetting}")
 
-            print(f"Average Accuracy: {average_accuracy:.2f}%")
-            print(f"Average Forgetting: {average_forgetting:.2f}%")
-
-            # Plot results
-            plot_combined_loss(loss_by_task, sequence_id=i + 1)
-            plot_combined_acc(acc_by_task, sequence_id=i + 1)
-            plot_taskwise_accuracy_progression(acc_by_task, sequence_id=i + 1)
+        # plot_combined_loss(loss_by_task, sequence_id=i + 1)
+        # plot_combined_acc(acc_by_task, sequence_id=i + 1)
+        # plot_taskwise_accuracy_progression(acc_by_task, sequence_id=i + 1)
 
 
 if __name__ == "__main__":
