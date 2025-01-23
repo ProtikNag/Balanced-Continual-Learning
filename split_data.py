@@ -1,72 +1,109 @@
 import torch
 from torch.utils.data import DataLoader, Dataset
-import numpy as np
+from datasets import load_dataset
+from transformers import BertTokenizer
+from collections import Counter
 
-class BatchWrapper:
-    def __init__(self, x, y):
-        self.x = torch.stack(x).unsqueeze(-1)  # Stack tensors and add feature dimension
-        self.y = torch.tensor(y).unsqueeze(-1)  # Combine labels into a single tensor
-        self.edge_index = None  # No edges in the sine wave dataset
-        self.batch = torch.arange(len(x))  # Dummy batch attribute
-
-    def __iter__(self):
-        return iter((self.x, self.y))  # Return only x and y as a tuple
-
-
-class SineWaveDataset(Dataset):
-    def __init__(self, num_samples=1000, frequency=0.1, amplitude=1.0, noise_level=0.15):
-        self.num_samples = num_samples
-        self.frequency = frequency
-        self.amplitude = amplitude
-        self.noise_level = noise_level
-        self.x, self.y = self.generate_data()
-
-    def generate_data(self):
-        x = torch.linspace(0, 1, self.num_samples)
-        y = self.amplitude * torch.sin(2 * torch.pi * self.frequency * x)
-        noise = self.noise_level * torch.randn_like(y)
-        y += noise
-        return x, y
+class EmotionDataset(Dataset):
+    def __init__(self, texts, labels, tokenizer, max_length=128):
+        self.texts = texts
+        self.labels = labels
+        self.tokenizer = tokenizer
+        self.max_length = max_length
 
     def __len__(self):
-        return self.num_samples
+        return len(self.texts)
 
     def __getitem__(self, idx):
-        return self.x[idx], self.y[idx]
-
-def create_task_datasets(num_tasks=10, num_samples=1000):
-    tasks = []
-    for task_id in range(num_tasks):
-        # Generate random frequency and amplitude for each task
-        frequency = np.random.uniform(0.5, 5.0)  # Frequency range [0.5, 5.0]
-        amplitude = np.random.uniform(0.5, 2.0)  # Amplitude range [0.5, 2.0]
-        dataset = SineWaveDataset(num_samples=num_samples, frequency=frequency, amplitude=amplitude)
-        tasks.append(dataset)
-    return tasks
-
-def split_and_load_tasks(tasks, batch_size=32):
-    train_loaders = []
-    test_loaders = []
-
-    for task_id, dataset in enumerate(tasks):
-        # Split dataset into train and test sets (80/20 split)
-        num_train = int(0.8 * len(dataset))
-        train_indices = list(range(num_train))
-        test_indices = list(range(num_train, len(dataset)))
-
-        train_subset = torch.utils.data.Subset(dataset, train_indices)
-        test_subset = torch.utils.data.Subset(dataset, test_indices)
-
-        train_loader = DataLoader(
-            train_subset, batch_size=batch_size, shuffle=True,
-            collate_fn=lambda batch: BatchWrapper(*zip(*batch))
+        encoding = self.tokenizer(
+            self.texts[idx],
+            truncation=True,
+            padding="max_length",
+            max_length=self.max_length,
+            return_tensors="pt"
         )
-        test_loader = DataLoader(
-            test_subset, batch_size=batch_size, shuffle=False,
-            collate_fn=lambda batch: BatchWrapper(*zip(*batch))
-        )
+        item = {key: val.squeeze(0) for key, val in encoding.items()}
+        item['labels'] = torch.tensor(self.labels[idx], dtype=torch.long)
+        return item
 
-        train_loaders.append(train_loader)
-        test_loaders.append(test_loader)
+def load_and_split_text(batch_size, tasks=14, max_samples_per_emotion=50):
+    # Load the GoEmotions dataset
+    dataset = load_dataset("go_emotions")
+    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
-    return train_loaders, test_loaders
+    # Combine all splits for simplicity
+    data = dataset['train']
+
+    # Group data by labels (emotions) and limit samples per emotion
+    emotion_data = {i: [] for i in range(28)}
+    for i, label in enumerate(data['labels']):
+        for emotion in label:
+            if len(emotion_data[emotion]) < max_samples_per_emotion:
+                emotion_data[emotion].append((data['text'][i], emotion))
+
+    # Split emotions into tasks
+    emotions_per_task = len(emotion_data) // tasks
+    tasks_train, tasks_test = [], []
+    task_classes = []
+
+    for task_id in range(tasks):
+        task_emotions = list(emotion_data.keys())[task_id * emotions_per_task: (task_id + 1) * emotions_per_task]
+        task_classes.append(task_emotions)
+
+        task_texts = []
+        task_labels = []
+        for emotion in task_emotions:
+            task_texts.extend([item[0] for item in emotion_data[emotion]])
+            task_labels.extend([emotion] * len(emotion_data[emotion]))
+
+        # Shuffle and split into train/test sets
+        indices = torch.randperm(len(task_texts)).tolist()
+        task_texts = [task_texts[i] for i in indices]
+        task_labels = [task_labels[i] for i in indices]
+
+        train_size = int(0.8 * len(task_texts))
+        train_texts = task_texts[:train_size]
+        train_labels = task_labels[:train_size]
+        test_texts = task_texts[train_size:]
+        test_labels = task_labels[train_size:]
+
+        # Print class distribution for the task
+        print(f"Task {task_id + 1}: Classes = {task_emotions}")
+        print(f"  Train samples per class: {dict(Counter(train_labels))}")
+        print(f"  Test samples per class: {dict(Counter(test_labels))}")
+        print(f"  Total train samples: {len(train_texts)}, Total test samples: {len(test_texts)}\n")
+
+        train_dataset = EmotionDataset(train_texts, train_labels, tokenizer)
+        test_dataset = EmotionDataset(test_texts, test_labels, tokenizer)
+
+        tasks_train.append(DataLoader(train_dataset, batch_size=batch_size, shuffle=True))
+        tasks_test.append(DataLoader(test_dataset, batch_size=batch_size, shuffle=False))
+
+    return tasks_train, tasks_test, task_classes
+
+def show_data_split():
+    batch_size = 32
+    tasks_train, tasks_test, task_classes = load_and_split_text(batch_size, tasks=14, max_samples_per_emotion=50)
+
+    # Print summary of the task splits
+    print("Summary of Tasks and Classes:")
+    for i, classes in enumerate(task_classes):
+        print(f"Task {i + 1}: {classes}")
+    print("\nData loaders created successfully!")
+
+    # Display data shapes for one batch from each task
+    print("\nInspecting Data Shapes:")
+    for i, train_loader in enumerate(tasks_train):
+        print(f"\nTask {i + 1}:")
+        for batch in train_loader:  # Get the first batch
+            input_ids_shape = batch['input_ids'].shape
+            attention_mask_shape = batch['attention_mask'].shape
+            labels_shape = batch['labels'].shape
+
+            print(f"  Input IDs Shape: {input_ids_shape}")
+            print(f"  Attention Mask Shape: {attention_mask_shape}")
+            print(f"  Labels Shape: {labels_shape}")
+            break  # Only inspect the first batch of each task
+
+
+show_data_split()

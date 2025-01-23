@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader
 from split_data import create_task_datasets, split_and_load_tasks
 from bcl_model import BCLModel
 from visualize import plot_combined_loss, plot_combined_acc, plot_taskwise_accuracy_progression
-from fnn import FeedForwardNN
+from bert import FeedForwardNN
 import random
 
 # Automate task sequence generation
