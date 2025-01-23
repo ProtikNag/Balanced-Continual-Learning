@@ -106,4 +106,4 @@ def show_data_split():
             break  # Only inspect the first batch of each task
 
 
-show_data_split()
+# show_data_split()
