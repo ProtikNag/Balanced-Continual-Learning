@@ -34,10 +34,9 @@ class BCLModel:
         # Forward pass
         outputs = self.model(input_ids, attention_mask, task_id)
         logits = outputs["logits"]
-
         initial_loss = self.criterion(logits, labels)
 
-        # Initialize gen_loss and forget_loss as tensors
+        # Initialize gen_loss and forget_loss
         gen_loss = torch.tensor(0.0, device=input_ids.device)
         forget_loss = torch.tensor(0.0, device=input_ids.device)
 
@@ -47,19 +46,25 @@ class BCLModel:
 
             # Player 1: Generate adversarial examples
             for _ in range(self.x_updates):
-                # Convert perturbed input back to integers before passing to BERT
                 perturbed_logits = self.model(
                     perturbed_input.long(), attention_mask, task_id
-                )["logits"]
+                )["logits"]  # Convert perturbed_input to long for BERT
                 adv_loss = self.criterion(perturbed_logits, labels)
-                adv_grad = torch.autograd.grad(adv_loss, perturbed_input, retain_graph=True)[0]
-                adv_grad = self.normalize_grad(adv_grad)
-                perturbed_input = perturbed_input + self.epsilon * adv_grad
 
-            # Final adversarial pass: Convert perturbed_input back to integers
+                # Compute gradients
+                adv_grad = torch.autograd.grad(
+                    adv_loss, perturbed_input, retain_graph=True, allow_unused=True
+                )[0]
+
+                if adv_grad is not None:
+                    adv_grad = self.normalize_grad(adv_grad)
+                    perturbed_input = perturbed_input + self.epsilon * adv_grad.clone()
+                    perturbed_input = perturbed_input.detach().requires_grad_(True)
+
+            # Final adversarial pass
             perturbed_logits = self.model(
                 perturbed_input.long(), attention_mask, task_id
-            )["logits"]
+            )["logits"]  # Convert to long for the final pass
             gen_loss = self.criterion(perturbed_logits, labels) - initial_loss
 
             # Player 2: Fine-tune with task memory
@@ -68,11 +73,11 @@ class BCLModel:
             for _ in range(self.theta_updates):
                 temp_optimizer.zero_grad()
                 temp_logits = temp_model(input_ids, attention_mask, task_id)["logits"]
-                forget_loss = self.criterion(temp_logits, labels)
-                forget_loss.backward(retain_graph=True)
+                temp_loss = self.criterion(temp_logits, labels)
+                temp_loss.backward(retain_graph=True)
                 temp_optimizer.step()
 
-            forget_loss = initial_loss - forget_loss
+            forget_loss = initial_loss - temp_loss
 
         # Total loss
         total_loss = initial_loss + gen_loss + forget_loss
