@@ -1,7 +1,6 @@
 import torch
 import torch.optim as optim
 import torch.nn as nn
-import torch.nn.functional as F
 import copy
 import random
 
@@ -10,10 +9,10 @@ torch.autograd.set_detect_anomaly(True)
 
 
 class BCLModel:
-    def __init__(self, model, lr=0.01, epsilon=0.01, k_range=50, x_updates=10, theta_updates=10):
+    def __init__(self, model, lr=0.001, epsilon=0.01, k_range=3, x_updates=3, theta_updates=3):
         self.model = model
-        self.optimizer = optim.SGD(self.model.parameters(), lr=lr)
-        self.criterion = nn.MSELoss()
+        self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
+        self.criterion = nn.CrossEntropyLoss()
         self.lr = lr
         self.epsilon = epsilon  # Perturbation strength for Player 1
         self.beta = 0.9
@@ -27,128 +26,117 @@ class BCLModel:
     def normalize_grad(grad, p=2, dim=1, eps=1e-12):
         return grad / grad.norm(p, dim, True).clamp(min=eps).expand_as(grad)
 
-    def update_model(self, x, edge_index, target, batch):
-        out = self.model(x, edge_index, batch)
-        gen_loss, forget_loss = 0, 0
-        initial_loss = self.criterion(out, target)
+    def update_model(self, batch, task_id):
+        input_ids = batch["input_ids"].to(next(self.model.parameters()).device)
+        attention_mask = batch["attention_mask"].to(next(self.model.parameters()).device)
+        labels = batch["labels"].to(next(self.model.parameters()).device)
+
+        # Forward pass
+        outputs = self.model(input_ids, attention_mask, task_id)
+        logits = outputs["logits"]
+
+        initial_loss = self.criterion(logits, labels)
+
+        # Initialize gen_loss and forget_loss as tensors
+        gen_loss = torch.tensor(0.0, device=input_ids.device)
+        forget_loss = torch.tensor(0.0, device=input_ids.device)
 
         if self.task_count > 0:
-            total_loss = self.beta * self.criterion(self.model(x, edge_index, batch), target)
-            perturbed_input = x.clone().detach().requires_grad_(True)
-            adv_grad = 0
-            J_PN_x = self.criterion(self.model(perturbed_input, edge_index, batch), target)
+            # Create a floating-point copy of input_ids for perturbations
+            perturbed_input = input_ids.clone().detach().float().requires_grad_(True)
 
-            # Player 1
+            # Player 1: Generate adversarial examples
             for _ in range(self.x_updates):
-                perturbed_input = perturbed_input + self.epsilon * adv_grad
-                adv_grad = torch.autograd.grad(
-                    self.criterion(self.model(perturbed_input, edge_index, batch), target), perturbed_input
-                )[0]
+                # Convert perturbed input back to integers before passing to BERT
+                perturbed_logits = self.model(
+                    perturbed_input.long(), attention_mask, task_id
+                )["logits"]
+                adv_loss = self.criterion(perturbed_logits, labels)
+                adv_grad = torch.autograd.grad(adv_loss, perturbed_input, retain_graph=True)[0]
                 adv_grad = self.normalize_grad(adv_grad)
+                perturbed_input = perturbed_input + self.epsilon * adv_grad
 
-            # Jk+ζ (θ k ) − Jk (θ k )
-            gen_loss = self.criterion(self.model(perturbed_input, edge_index, batch), target)
-            gen_loss = gen_loss - J_PN_x
+            # Final adversarial pass: Convert perturbed_input back to integers
+            perturbed_logits = self.model(
+                perturbed_input.long(), attention_mask, task_id
+            )["logits"]
+            gen_loss = self.criterion(perturbed_logits, labels) - initial_loss
 
-            # Player 2
-            J_P = self.criterion(self.model(x, edge_index, batch), target)
+            # Player 2: Fine-tune with task memory
             temp_model = copy.deepcopy(self.model)
-            temp_model_optimizer = optim.SGD(temp_model.parameters(), lr=self.lr)
-            J_PN_theta = self.criterion(self.model(x, edge_index, batch), target)
-
+            temp_optimizer = optim.Adam(temp_model.parameters(), lr=self.lr)
             for _ in range(self.theta_updates):
-                temp_model_optimizer.zero_grad()
-                out = temp_model(x, edge_index, batch)
-                forget_loss = self.criterion(out, target)
+                temp_optimizer.zero_grad()
+                temp_logits = temp_model(input_ids, attention_mask, task_id)["logits"]
+                forget_loss = self.criterion(temp_logits, labels)
                 forget_loss.backward(retain_graph=True)
-                temp_model_optimizer.step()
+                temp_optimizer.step()
 
-            # Jk (θ^i k ) - Jk (θ^(i+ζ) k)
-            forget_loss = J_PN_theta - self.criterion(temp_model(x, edge_index, batch), target)
-            total_loss += J_P + forget_loss + gen_loss
-        else:
-            total_loss = self.criterion(self.model(x, edge_index, batch), target)
+            forget_loss = initial_loss - forget_loss
 
+        # Total loss
+        total_loss = initial_loss + gen_loss + forget_loss
         self.optimizer.zero_grad()
         total_loss.backward()
         self.optimizer.step()
 
-        return total_loss.detach(), initial_loss, gen_loss, forget_loss, out
+        return total_loss.item(), initial_loss.item(), gen_loss.item(), forget_loss.item()
 
-    def evaluate(self, tasks_test):
+    def evaluate(self, test_loader, task_id):
         self.model.eval()
-        results = {}
+        correct = 0
+        total = 0
 
         with torch.no_grad():
-            for task_id, test_loader in enumerate(tasks_test):
-                total_loss = 0.0
-                total_samples = 0
+            for batch in test_loader:
+                input_ids = batch["input_ids"].to(next(self.model.parameters()).device)
+                attention_mask = batch["attention_mask"].to(next(self.model.parameters()).device)
+                labels = batch["labels"].to(next(self.model.parameters()).device)
 
-                for batch in test_loader:
-                    x, target = batch  # Unpack x and y from BatchWrapper
-                    x = x.to(next(self.model.parameters()).device)
-                    target = target.to(next(self.model.parameters()).device)
+                outputs = self.model(input_ids, attention_mask, task_id)
+                logits = outputs["logits"]
+                _, predicted = torch.max(logits, dim=1)
 
-                    outputs = self.model(x)
-                    loss = self.criterion(outputs, target)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
 
-                    total_loss += loss.item() * len(x)
-                    total_samples += len(x)
+        accuracy = correct / total if total > 0 else 0.0
+        return accuracy
 
-                # Store average loss for the task
-                average_loss = total_loss / total_samples if total_samples > 0 else float('inf')
-                results[f'Task_{task_id + 1}'] = average_loss
-
-        return results
-
-    def train_task(self, task_loader):
+    def train_task(self, train_loader, task_id):
         self.model.train()
-        self.task_memory[self.task_count] = task_loader
+        self.task_memory[self.task_count] = train_loader
 
-        replay_ratio = 0.25  # Percentage of previous task data to include
-        combined_batches = []
+        # Prepare memory replay
+        replay_ratio = 0.25
+        replay_batches = []
 
         if self.task_count > 0:
             for prev_task_id in range(self.task_count):
                 prev_loader = self.task_memory[prev_task_id]
                 for batch in prev_loader:
-                    combined_batches.append(batch)
+                    replay_batches.append(batch)
 
-            sample_size = int(replay_ratio * len(combined_batches))
+            sample_size = int(replay_ratio * len(replay_batches))
             if sample_size > 0:
-                replay_data = random.sample(combined_batches, sample_size)
+                replay_data = random.sample(replay_batches, sample_size)
             else:
                 replay_data = []
         else:
             replay_data = []
 
-        for batch in task_loader:
-            combined_batches.append(batch)
+        # Combine current task and memory data
+        combined_batches = list(train_loader) + replay_data
 
-        combined_batches.extend(replay_data)
-
-        # Concatenate all inputs and targets
+        # Train on combined data
         initial_loss_list, gen_loss_list, forget_loss_list = [], [], []
 
         for epoch in range(self.k_range):
             for batch in combined_batches:
-                x = batch.x
-                edge_index = batch.edge_index
-                target = batch.y
-                batch_attr = batch.batch
+                total_loss, initial_loss, gen_loss, forget_loss = self.update_model(batch, task_id)
 
-                total_loss, initial_loss, gen_loss, forget_loss, _ = self.update_model(
-                    x,
-                    edge_index,
-                    target,
-                    batch_attr
-                )
-
-                initial_loss_list.append(initial_loss.item())
+                initial_loss_list.append(initial_loss)
                 if self.task_count > 0:
-                    gen_loss_list.append(gen_loss.item())
-                    forget_loss_list.append(forget_loss.item())
-                else:
                     gen_loss_list.append(gen_loss)
                     forget_loss_list.append(forget_loss)
 
